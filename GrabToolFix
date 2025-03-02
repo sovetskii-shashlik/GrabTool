@@ -1,0 +1,131 @@
+--[[
+	ВНИМАНИЕ: Обратите внимание! Этот скрипт не был проверен ScriptBlox. Используйте на свой страх и риск!
+]]
+--[[ 
+    ВНИМАНИЕ: Обратите внимание! Этот скрипт не был проверен ScriptBlox. Используйте на свой страх и риск!
+]]
+
+-- Создание инструмента
+local tool = Instance.new("Tool")
+tool.Name = "Grab Tool"
+tool.RequiresHandle = false
+tool.Parent = game.Players.LocalPlayer:WaitForChild("Backpack")
+
+-- Переменные
+local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
+local grabbedPart = nil
+local isHolding = false
+local grabbedCharacter = nil
+
+-- Функция для захвата объекта
+local function grabPart(target)
+    if target and not target.Anchored and not isHolding and target:IsA("BasePart") then
+        grabbedPart = target
+        isHolding = true
+
+        -- Создание BodyPosition для плавного перемещения объекта
+        local bodyPosition = Instance.new("BodyPosition")
+        bodyPosition.MaxForce = Vector3.new(1e7, 1e7, 1e7) -- Увеличенная сила для больших объектов
+        bodyPosition.P = 5000 -- Более высокая отзывчивость
+        bodyPosition.D = 50 -- Уменьшенное демпфирование для более быстрой реакции
+        bodyPosition.Position = player.Character.HumanoidRootPart.Position + Vector3.new(0, 5, -5)
+        bodyPosition.Parent = grabbedPart
+
+        -- Устанавливаем объект в безмассовое состояние и отключаем коллизии
+        grabbedPart.Massless = true
+        grabbedPart.CanCollide = false
+    end
+end
+
+-- Функция для захвата игрока (себя)
+local function grabCharacter()
+    if not isHolding then
+        local character = player.Character or player.CharacterAdded:Wait()
+        local root = character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+
+        -- Создание BodyPosition для контроля движения персонажа
+        local bodyPosition = Instance.new("BodyPosition")
+        bodyPosition.MaxForce = Vector3.new(1e7, 1e7, 1e7) -- Увеличенная сила
+        bodyPosition.P = 5000
+        bodyPosition.D = 50
+        bodyPosition.Position = root.Position + Vector3.new(0, 5, -5)  -- Регулировка смещения
+        bodyPosition.Parent = root
+
+        -- Устанавливаем персонажа в безмассовое состояние и отключаем коллизии
+        character:BreakJoints() -- Чтобы избежать нежелательного движения
+        character.HumanoidRootPart.CanCollide = false
+        character.HumanoidRootPart.Massless = true
+
+        grabbedCharacter = character
+        isHolding = true
+    end
+end
+
+-- Функция для броска объекта
+local function throwPart()
+    if grabbedPart and isHolding then
+        -- Восстановление свойств объекта
+        grabbedPart.Massless = false
+        grabbedPart.CanCollide = true
+
+        -- Создание BodyVelocity для броска объекта
+        local bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.MaxForce = Vector3.new(1e7, 1e7, 1e7) -- Увеличенная сила для мощного броска
+        bodyVelocity.Velocity = mouse.UnitRay.Direction * 3000 -- Очень быстрый бросок
+        bodyVelocity.Parent = grabbedPart
+
+        -- Очистка BodyPosition и BodyVelocity
+        if grabbedPart:FindFirstChildOfClass("BodyPosition") then
+            grabbedPart:FindFirstChildOfClass("BodyPosition"):Destroy()
+        end
+
+        game:GetService("Debris"):AddItem(bodyVelocity, 100)
+        grabbedPart = nil
+        isHolding = false
+    end
+end
+
+-- Функция для броска персонажа (себя)
+local function throwCharacter()
+    if isHolding and grabbedCharacter then
+        local root = grabbedCharacter:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+
+        -- Восстановление свойств персонажа
+        grabbedCharacter.HumanoidRootPart.CanCollide = true
+        grabbedCharacter.HumanoidRootPart.Massless = false
+
+        -- Добавление BodyVelocity для броска персонажа
+        local bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.MaxForce = Vector3.new(1e7, 1e7, 1e7) -- Огромная сила
+        bodyVelocity.Velocity = mouse.UnitRay.Direction * 5000  -- Ещё более высокая скорость броска
+        bodyVelocity.Parent = root
+
+        -- Очистка BodyPosition и BodyVelocity
+        game:GetService("Debris"):AddItem(bodyVelocity, 100)
+        grabbedCharacter = nil
+        isHolding = false
+    end
+end
+
+-- Логика активации инструмента
+tool.Activated:Connect(function()
+    local target = mouse.Target
+
+    if isHolding then
+        -- Если удерживается объект, бросить его
+        if grabbedPart then
+            throwPart()
+        elseif grabbedCharacter then
+            throwCharacter()
+        end
+    else
+        if target then
+            -- Попробовать захватить объект
+            grabPart(target)
+        end
+        -- Если `target` равен `nil`, ничего не происходит
+    end
+end)
