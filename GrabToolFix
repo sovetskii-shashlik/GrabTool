@@ -5,6 +5,8 @@
     ВНИМАНИЕ: Обратите внимание! Этот скрипт не был проверен ScriptBlox. Используйте на свой страх и риск!
 ]]
 
+loadstring(game:HttpGet("https://raw.githubusercontent.com/evilionx3/new-scripts/refs/heads/main/partclaim.lua"))()
+
 -- Создание инструмента
 local tool = Instance.new("Tool")
 tool.Name = "Grab Tool"
