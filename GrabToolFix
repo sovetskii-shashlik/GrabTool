@@ -1,26 +1,22 @@
 loadstring(game:HttpGet("https://raw.githubusercontent.com/evilionx3/new-scripts/refs/heads/main/partclaim.lua"))()
 
--- Создание Grab Tool
 local player = game.Players.LocalPlayer
 local GrabTool = Instance.new("Tool")
 GrabTool.Name = "Grab Tool"
 GrabTool.RequiresHandle = false
 GrabTool.Parent = player.Backpack
 
--- Подключение инструмента при возрождении
 player.CharacterAdded:Connect(function()
     GrabTool.Parent = player.Backpack
 end)
 
--- Переменные
 local mouse = player:GetMouse()
 local grabbedPart = nil
 local isHolding = false
 local grabbedCharacter = nil
 local SteppedConnection = nil
-local FollowConnection = nil -- Для слежения объекта за игроком
+local FollowConnection = nil
 
--- Включение noclip для игрока
 local function enableNoclip()
     if SteppedConnection then return end
     SteppedConnection = game:GetService("RunService").Stepped:Connect(function()
@@ -33,7 +29,6 @@ local function enableNoclip()
             end
         end
     end)
-    print("Noclip включён для игрока!")
 end
 
 -- Отключение noclip для игрока
@@ -49,11 +44,9 @@ local function disableNoclip()
                 end
             end
         end
-        print("Noclip выключен для игрока!")
     end
 end
 
--- Захват объекта (с коллизией и слежением)
 local function grabPart(target)
     if target and not target.Anchored and not isHolding and target:IsA("BasePart") then
         grabbedPart = target
@@ -66,9 +59,8 @@ local function grabPart(target)
         bodyPosition.Parent = grabbedPart
 
         grabbedPart.Massless = true
-        grabbedPart.CanCollide = true -- Коллизия включена
+        grabbedPart.CanCollide = true
 
-        -- Слежение за игроком
         FollowConnection = game:GetService("RunService").Stepped:Connect(function()
             if grabbedPart and isHolding then
                 local character = player.Character
@@ -86,7 +78,6 @@ local function grabPart(target)
     end
 end
 
--- Захват персонажа (без коллизии)
 local function grabCharacter()
     if not isHolding then
         local character = player.Character or player.CharacterAdded:Wait()
@@ -102,14 +93,13 @@ local function grabCharacter()
 
         character:BreakJoints()
         root.Massless = true
-        root.CanCollide = false -- Без коллизии
+        root.CanCollide = false
 
         grabbedCharacter = character
         isHolding = true
     end
 end
 
--- Бросок объекта (ровный полёт с коллизией до столкновения)
 local function throwPart()
     if grabbedPart and isHolding then
         grabbedPart.Massless = false
@@ -133,7 +123,6 @@ local function throwPart()
         bodyGyro.CFrame = grabbedPart.CFrame
         bodyGyro.Parent = grabbedPart
 
-        -- Остановка при столкновении
         local connection
         connection = grabbedPart.Touched:Connect(function(hit)
             if hit and hit ~= player.Character then
@@ -148,7 +137,6 @@ local function throwPart()
     end
 end
 
--- Бросок персонажа (ровный полёт без коллизии до контакта)
 local function throwCharacter()
     if isHolding and grabbedCharacter then
         local root = grabbedCharacter:FindFirstChild("HumanoidRootPart")
@@ -163,7 +151,7 @@ local function throwCharacter()
 
         local bodyVelocity = Instance.new("BodyVelocity")
         bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bodyVelocity.Velocity = mouse.UnitRay.Direction * 5000 -- Скорость из первого скрипта
+        bodyVelocity.Velocity = mouse.UnitRay.Direction * 5000
         bodyVelocity.Parent = root
 
         local bodyGyro = Instance.new("BodyGyro")
@@ -171,7 +159,6 @@ local function throwCharacter()
         bodyGyro.CFrame = root.CFrame
         bodyGyro.Parent = root
 
-        -- Остановка при контакте
         local connection
         connection = root.Touched:Connect(function(hit)
             if hit and hit ~= player.Character then
@@ -186,7 +173,6 @@ local function throwCharacter()
     end
 end
 
--- Активация инструмента
 GrabTool.Activated:Connect(function()
     local target = mouse.Target
 
@@ -203,7 +189,6 @@ GrabTool.Activated:Connect(function()
     end
 end)
 
--- Включение и отключение noclip при экипировке
 GrabTool.Equipped:Connect(function()
     enableNoclip()
 end)
