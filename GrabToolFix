@@ -115,7 +115,7 @@ local function throwPart()
 
         local bodyVelocity = Instance.new("BodyVelocity")
         bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bodyVelocity.Velocity = mouse.UnitRay.Direction * 3000 -- Скорость из первого скрипта
+        bodyVelocity.Velocity = mouse.UnitRay.Direction * 2000 -- Скорость из первого скрипта
         bodyVelocity.Parent = grabbedPart
 
         local bodyGyro = Instance.new("BodyGyro")
