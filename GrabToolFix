@@ -1,13 +1,13 @@
 loadstring(game:HttpGet("https://raw.githubusercontent.com/evilionx3/new-scripts/refs/heads/main/partclaim.lua"))()
 
--- Создание Grab Tool в стиле Possession Tool
+-- Создание Grab Tool
 local player = game.Players.LocalPlayer
 local GrabTool = Instance.new("Tool")
 GrabTool.Name = "Grab Tool"
-GrabTool.RequiresHandle = false -- Убираем Handle, как в Possession Tool
-GrabTool.Parent = player.Backpack -- Изначальное подключение
+GrabTool.RequiresHandle = false
+GrabTool.Parent = player.Backpack
 
--- Динамическое подключение при смене персонажа
+-- Подключение инструмента при возрождении
 player.CharacterAdded:Connect(function()
     GrabTool.Parent = player.Backpack
 end)
@@ -17,8 +17,43 @@ local mouse = player:GetMouse()
 local grabbedPart = nil
 local isHolding = false
 local grabbedCharacter = nil
+local SteppedConnection = nil
+local FollowConnection = nil -- Для слежения объекта за игроком
 
--- Функция для захвата объекта
+-- Включение noclip для игрока
+local function enableNoclip()
+    if SteppedConnection then return end
+    SteppedConnection = game:GetService("RunService").Stepped:Connect(function()
+        local character = player.Character
+        if character then
+            for _, v in pairs(character:GetChildren()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end)
+    print("Noclip включён для игрока!")
+end
+
+-- Отключение noclip для игрока
+local function disableNoclip()
+    if SteppedConnection then
+        SteppedConnection:Disconnect()
+        SteppedConnection = nil
+        local character = player.Character
+        if character then
+            for _, v in pairs(character:GetChildren()) do
+                if v:IsA("BasePart") then
+                    v.CanCollide = true
+                end
+            end
+        end
+        print("Noclip выключен для игрока!")
+    end
+end
+
+-- Захват объекта (с коллизией и слежением)
 local function grabPart(target)
     if target and not target.Anchored and not isHolding and target:IsA("BasePart") then
         grabbedPart = target
@@ -28,15 +63,30 @@ local function grabPart(target)
         bodyPosition.MaxForce = Vector3.new(1e7, 1e7, 1e7)
         bodyPosition.P = 5000
         bodyPosition.D = 50
-        bodyPosition.Position = player.Character.HumanoidRootPart.Position + Vector3.new(0, 5, -5)
         bodyPosition.Parent = grabbedPart
 
         grabbedPart.Massless = true
-        grabbedPart.CanCollide = false
+        grabbedPart.CanCollide = true -- Коллизия включена
+
+        -- Слежение за игроком
+        FollowConnection = game:GetService("RunService").Stepped:Connect(function()
+            if grabbedPart and isHolding then
+                local character = player.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = character.HumanoidRootPart
+                    local direction = -hrp.CFrame.LookVector -- Направление сзади игрока
+                    local offset = 5 + (grabbedPart.Size.Magnitude / 2) -- 5 студов от границы
+                    bodyPosition.Position = hrp.Position + (direction * offset)
+                end
+            else
+                FollowConnection:Disconnect()
+                FollowConnection = nil
+            end
+        end)
     end
 end
 
--- Функция для захвата игрока (себя)
+-- Захват персонажа (без коллизии)
 local function grabCharacter()
     if not isHolding then
         local character = player.Character or player.CharacterAdded:Wait()
@@ -51,56 +101,92 @@ local function grabCharacter()
         bodyPosition.Parent = root
 
         character:BreakJoints()
-        character.HumanoidRootPart.CanCollide = false
-        character.HumanoidRootPart.Massless = true
+        root.Massless = true
+        root.CanCollide = false -- Без коллизии
 
         grabbedCharacter = character
         isHolding = true
     end
 end
 
--- Функция для броска объекта
+-- Бросок объекта (ровный полёт с коллизией до столкновения)
 local function throwPart()
     if grabbedPart and isHolding then
         grabbedPart.Massless = false
         grabbedPart.CanCollide = true
 
-        local bodyVelocity = Instance.new("BodyVelocity")
-        bodyVelocity.MaxForce = Vector3.new(1e7, 1e7, 1e7)
-        bodyVelocity.Velocity = mouse.UnitRay.Direction * 3000
-        bodyVelocity.Parent = grabbedPart
-
         if grabbedPart:FindFirstChildOfClass("BodyPosition") then
             grabbedPart:FindFirstChildOfClass("BodyPosition"):Destroy()
         end
+        if FollowConnection then
+            FollowConnection:Disconnect()
+            FollowConnection = nil
+        end
 
-        game:GetService("Debris"):AddItem(bodyVelocity, 100)
+        local bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bodyVelocity.Velocity = mouse.UnitRay.Direction * 3000 -- Скорость из первого скрипта
+        bodyVelocity.Parent = grabbedPart
+
+        local bodyGyro = Instance.new("BodyGyro")
+        bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        bodyGyro.CFrame = grabbedPart.CFrame
+        bodyGyro.Parent = grabbedPart
+
+        -- Остановка при столкновении
+        local connection
+        connection = grabbedPart.Touched:Connect(function(hit)
+            if hit and hit ~= player.Character then
+                if bodyVelocity then bodyVelocity:Destroy() end
+                if bodyGyro then bodyGyro:Destroy() end
+                connection:Disconnect()
+            end
+        end)
+
         grabbedPart = nil
         isHolding = false
     end
 end
 
--- Функция для броска персонажа (себя)
+-- Бросок персонажа (ровный полёт без коллизии до контакта)
 local function throwCharacter()
     if isHolding and grabbedCharacter then
         local root = grabbedCharacter:FindFirstChild("HumanoidRootPart")
         if not root then return end
 
-        grabbedCharacter.HumanoidRootPart.CanCollide = true
-        grabbedCharacter.HumanoidRootPart.Massless = false
+        root.Massless = false
+        root.CanCollide = false
+
+        if root:FindFirstChildOfClass("BodyPosition") then
+            root:FindFirstChildOfClass("BodyPosition"):Destroy()
+        end
 
         local bodyVelocity = Instance.new("BodyVelocity")
-        bodyVelocity.MaxForce = Vector3.new(1e7, 1e7, 1e7)
-        bodyVelocity.Velocity = mouse.UnitRay.Direction * 5000
+        bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bodyVelocity.Velocity = mouse.UnitRay.Direction * 5000 -- Скорость из первого скрипта
         bodyVelocity.Parent = root
 
-        game:GetService("Debris"):AddItem(bodyVelocity, 100)
+        local bodyGyro = Instance.new("BodyGyro")
+        bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+        bodyGyro.CFrame = root.CFrame
+        bodyGyro.Parent = root
+
+        -- Остановка при контакте
+        local connection
+        connection = root.Touched:Connect(function(hit)
+            if hit and hit ~= player.Character then
+                if bodyVelocity then bodyVelocity:Destroy() end
+                if bodyGyro then bodyGyro:Destroy() end
+                connection:Disconnect()
+            end
+        end)
+
         grabbedCharacter = nil
         isHolding = false
     end
 end
 
--- Логика активации инструмента
+-- Активация инструмента
 GrabTool.Activated:Connect(function()
     local target = mouse.Target
 
@@ -115,4 +201,13 @@ GrabTool.Activated:Connect(function()
             grabPart(target)
         end
     end
+end)
+
+-- Включение и отключение noclip при экипировке
+GrabTool.Equipped:Connect(function()
+    enableNoclip()
+end)
+
+GrabTool.Unequipped:Connect(function()
+    disableNoclip()
 end)
