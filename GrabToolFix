@@ -31,7 +31,6 @@ local function enableNoclip()
     end)
 end
 
--- Отключение noclip для игрока
 local function disableNoclip()
     if SteppedConnection then
         SteppedConnection:Disconnect()
@@ -66,8 +65,8 @@ local function grabPart(target)
                 local character = player.Character
                 if character and character:FindFirstChild("HumanoidRootPart") then
                     local hrp = character.HumanoidRootPart
-                    local direction = -hrp.CFrame.LookVector -- Направление сзади игрока
-                    local offset = 5 + (grabbedPart.Size.Magnitude / 2) -- 5 студов от границы
+                    local direction = -hrp.CFrame.LookVector
+                    local offset = 5 + (grabbedPart.Size.Magnitude / 2)
                     bodyPosition.Position = hrp.Position + (direction * offset)
                 end
             else
@@ -115,7 +114,7 @@ local function throwPart()
 
         local bodyVelocity = Instance.new("BodyVelocity")
         bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bodyVelocity.Velocity = mouse.UnitRay.Direction * 2000 -- Скорость из первого скрипта
+        bodyVelocity.Velocity = mouse.UnitRay.Direction * 3000
         bodyVelocity.Parent = grabbedPart
 
         local bodyGyro = Instance.new("BodyGyro")
@@ -124,11 +123,29 @@ local function throwPart()
         bodyGyro.Parent = grabbedPart
 
         local connection
-        connection = grabbedPart.Touched:Connect(function(hit)
-            if hit and hit ~= player.Character then
+        connection = game:GetService("RunService").Stepped:Connect(function()
+            local raycastParams = RaycastParams.new()
+            raycastParams.FilterDescendantsInstances = {player.Character}
+            raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+            local direction = grabbedPart.Velocity.Unit
+            local origin = grabbedPart.Position
+            local raycastResult = workspace:Raycast(origin, direction * (grabbedPart.Size.Magnitude + 1), raycastParams)
+
+            if raycastResult or grabbedPart.Velocity.Magnitude < 50 then
                 if bodyVelocity then bodyVelocity:Destroy() end
                 if bodyGyro then bodyGyro:Destroy() end
                 connection:Disconnect()
+            end
+        end)
+
+        local touchedConnection
+        touchedConnection = grabbedPart.Touched:Connect(function(hit)
+            if hit and hit ~= player.Character then
+                if bodyVelocity then bodyVelocity:Destroy() end
+                if bodyGyro then bodyGyro:Destroy() end
+                touchedConnection:Disconnect()
+                if connection then connection:Disconnect() end
             end
         end)
 
