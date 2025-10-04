@@ -1,5 +1,3 @@
-loadstring(game:HttpGet("https://raw.githubusercontent.com/evilionx3/new-scripts/refs/heads/main/partclaim.lua"))()
-
 local player = game.Players.LocalPlayer
 local GrabTool = Instance.new("Tool")
 GrabTool.Name = "Grab Tool"
